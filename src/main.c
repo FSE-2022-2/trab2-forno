@@ -7,12 +7,14 @@
 
 int main(int argc, const char * argv[]) {
 
-    int uart0_filestream = -1;
-    uart0_filestream = open_uart(uart0_filestream);
+    int command, uart0_filestream = -1;
     
+    uart0_filestream = open_uart(uart0_filestream);
     unsigned char tx_buffer[10];
     unsigned char *p_tx_buffer = &tx_buffer[0];
-    uart0_filestream = write_uart(uart0_filestream, tx_buffer, p_tx_buffer);
+    printf("Digite o comando: \n");
+    fscanf(stdin, "%d", &command);
+    uart0_filestream = write_uart(command, uart0_filestream, tx_buffer, p_tx_buffer);
     
     sleep(1);
     

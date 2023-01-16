@@ -28,18 +28,75 @@ int open_uart(int uart0_filestream) {
     return uart0_filestream;
 }
 
-int write_uart(int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
-    *p_tx_buffer++ = 0x01; // Endereço da ESP32
-    *p_tx_buffer++ = 0x23; // Código
-    *p_tx_buffer++ = 0xC1; // Sub-código + Matrícula (8159)
-    *p_tx_buffer++ = 8;
-    *p_tx_buffer++ = 1;
-    *p_tx_buffer++ = 5;
-    *p_tx_buffer++ = 9; 
-    unsigned short crc = calcula_CRC(tx_buffer, 7);
-    // memcpy 2 bytes de crc
-    memcpy(p_tx_buffer, &crc, 2);
-    p_tx_buffer += 2;
+int write_uart(int command, int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
+    switch (command)
+    {
+    case 1:
+        printf("case 1\n");
+        *p_tx_buffer++ = 0x01; // Endereço da ESP32
+        *p_tx_buffer++ = 0x23; // Código
+        *p_tx_buffer++ = 0xC1; // Sub-código + Matrícula (8159)
+        *p_tx_buffer++ = 8;
+        *p_tx_buffer++ = 1;
+        *p_tx_buffer++ = 5;
+        *p_tx_buffer++ = 9; 
+        unsigned short crc = calcula_CRC(tx_buffer, 7);
+        // memcpy 2 bytes de crc
+        memcpy(p_tx_buffer, &crc, 2);
+        p_tx_buffer += 2;
+        break;
+    case 2:
+        printf("case 2\n");
+        *p_tx_buffer++ = 0x01; // Endereço da ESP32
+        *p_tx_buffer++ = 0x23; // Código
+        *p_tx_buffer++ = 0xC2; // Sub-código + Matrícula (8159)
+        *p_tx_buffer++ = 8;
+        *p_tx_buffer++ = 1;
+        *p_tx_buffer++ = 5;
+        *p_tx_buffer++ = 9; 
+        crc = calcula_CRC(tx_buffer, 7);
+        // memcpy 2 bytes de crc
+        memcpy(p_tx_buffer, &crc, 2);
+        p_tx_buffer += 2;
+        break;
+    case 3:
+        printf("case 3\n");
+        *p_tx_buffer++ = 0x01; // Endereço da ESP32
+        *p_tx_buffer++ = 0x23; // Código
+        *p_tx_buffer++ = 0xC3; // Sub-código + Matrícula (8159)
+        *p_tx_buffer++ = 8;
+        *p_tx_buffer++ = 1;
+        *p_tx_buffer++ = 5;
+        *p_tx_buffer++ = 9; 
+        crc = calcula_CRC(tx_buffer, 7);
+        // memcpy 2 bytes de crc
+        memcpy(p_tx_buffer, &crc, 2);
+        p_tx_buffer += 2;
+        break;
+    case 4:
+        *p_tx_buffer++ = 0x01; // Endereço da ESP32
+        *p_tx_buffer++ = 0x16; // Código
+        *p_tx_buffer++ = 0xD1; // Sub-código + Matrícula (8159)
+        *p_tx_buffer++ = 8;
+        *p_tx_buffer++ = 1;
+        *p_tx_buffer++ = 5;
+        *p_tx_buffer++ = 9; 
+        // //sinal de controle de 4 bytes
+        // unsigned char sinal_controle[4];
+        // *p_tx_buffer++ = sinal_controle[0];
+        // *p_tx_buffer++ = sinal_controle[1];
+        // *p_tx_buffer++ = sinal_controle[2];
+        // *p_tx_buffer++ = sinal_controle[3];
+
+        crc = calcula_CRC(tx_buffer, 7);
+        // memcpy 2 bytes de crc
+        memcpy(p_tx_buffer, &crc, 2);
+        p_tx_buffer += 2;
+        break;
+    default:
+        break;
+    }
+
 
     printf("Buffers de memória criados!\n");
     if (uart0_filestream != -1)

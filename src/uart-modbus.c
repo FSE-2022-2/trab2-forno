@@ -29,6 +29,8 @@ int open_uart(int uart0_filestream) {
 }
 
 int write_uart(int command, int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
+    int size;
+    unsigned short crc;
     switch (command)
     {
     case 1:
@@ -40,10 +42,12 @@ int write_uart(int command, int uart0_filestream, unsigned char *tx_buffer, unsi
         *p_tx_buffer++ = 1;
         *p_tx_buffer++ = 5;
         *p_tx_buffer++ = 9; 
-        unsigned short crc = calcula_CRC(tx_buffer, 7);
+       // get size of current filled buffer
+        size = p_tx_buffer - tx_buffer;
+        crc = calcula_CRC(tx_buffer, size);
         // memcpy 2 bytes de crc
         memcpy(p_tx_buffer, &crc, 2);
-        p_tx_buffer += 2;
+        p_tx_buffer += 2; 
         break;
     case 2:
         printf("case 2\n");
@@ -54,7 +58,9 @@ int write_uart(int command, int uart0_filestream, unsigned char *tx_buffer, unsi
         *p_tx_buffer++ = 1;
         *p_tx_buffer++ = 5;
         *p_tx_buffer++ = 9; 
-        crc = calcula_CRC(tx_buffer, 7);
+       // get size of current filled buffer
+        size = p_tx_buffer - tx_buffer;
+        crc = calcula_CRC(tx_buffer, size);
         // memcpy 2 bytes de crc
         memcpy(p_tx_buffer, &crc, 2);
         p_tx_buffer += 2;
@@ -68,12 +74,16 @@ int write_uart(int command, int uart0_filestream, unsigned char *tx_buffer, unsi
         *p_tx_buffer++ = 1;
         *p_tx_buffer++ = 5;
         *p_tx_buffer++ = 9; 
-        crc = calcula_CRC(tx_buffer, 7);
+       // get size of current filled buffer
+        size = p_tx_buffer - tx_buffer;
+        crc = calcula_CRC(tx_buffer, size);
         // memcpy 2 bytes de crc
         memcpy(p_tx_buffer, &crc, 2);
         p_tx_buffer += 2;
         break;
     case 4:
+        printf("case 4\n");
+        int sinal_controle;
         *p_tx_buffer++ = 0x01; // Endereço da ESP32
         *p_tx_buffer++ = 0x16; // Código
         *p_tx_buffer++ = 0xD1; // Sub-código + Matrícula (8159)
@@ -81,14 +91,38 @@ int write_uart(int command, int uart0_filestream, unsigned char *tx_buffer, unsi
         *p_tx_buffer++ = 1;
         *p_tx_buffer++ = 5;
         *p_tx_buffer++ = 9; 
-        // //sinal de controle de 4 bytes
-        // unsigned char sinal_controle[4];
-        // *p_tx_buffer++ = sinal_controle[0];
-        // *p_tx_buffer++ = sinal_controle[1];
-        // *p_tx_buffer++ = sinal_controle[2];
-        // *p_tx_buffer++ = sinal_controle[3];
 
-        crc = calcula_CRC(tx_buffer, 7);
+        printf("Digite o sinal de controle: \n");
+        sinal_controle = fscanf(stdin, "%d", &sinal_controle);
+        memcpy(p_tx_buffer, &sinal_controle, 4);
+        p_tx_buffer += 4;
+
+       // get size of current filled buffer
+        size = p_tx_buffer - tx_buffer;
+        crc = calcula_CRC(tx_buffer, size);
+        // memcpy 2 bytes de crc
+        memcpy(p_tx_buffer, &crc, 2);
+        p_tx_buffer += 2;
+        break;
+    case 5:
+        printf("case 5\n");
+        float sinal_de_referencia;
+        *p_tx_buffer++ = 0x01; // Endereço da ESP32
+        *p_tx_buffer++ = 0x23; // Código
+        *p_tx_buffer++ = 0xD2; // Sub-código + Matrícula (8159)
+        *p_tx_buffer++ = 8;
+        *p_tx_buffer++ = 1;
+        *p_tx_buffer++ = 5;
+        *p_tx_buffer++ = 9; 
+
+        printf("Digite o sinal de referência: \n");
+        sinal_de_referencia = fscanf(stdin, "%f", &sinal_de_referencia);
+        memcpy(p_tx_buffer, &sinal_de_referencia, 4);
+        p_tx_buffer += 4;
+
+       // get size of current filled buffer
+        size = p_tx_buffer - tx_buffer;
+        crc = calcula_CRC(tx_buffer, size);
         // memcpy 2 bytes de crc
         memcpy(p_tx_buffer, &crc, 2);
         p_tx_buffer += 2;

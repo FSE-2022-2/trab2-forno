@@ -10,7 +10,7 @@ int main(int argc, const char * argv[]) {
     int command, uart0_filestream = -1;
     
     uart0_filestream = open_uart(uart0_filestream);
-    unsigned char tx_buffer[10];
+    unsigned char tx_buffer[256];
     unsigned char *p_tx_buffer = &tx_buffer[0];
     printf("Digite o comando: \n");
     fscanf(stdin, "%d", &command);

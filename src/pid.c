@@ -2,9 +2,9 @@
 
 double saida_medida, sinal_de_controle;
 double referencia = 0.0;
-double Kp = 0.0;  // Ganho Proporcional
-double Ki = 0.0;  // Ganho Integral
-double Kd = 0.0;  // Ganho Derivativo
+double Kp = 30.0;  // Ganho Proporcional
+double Ki = 0.2;  // Ganho Integral
+double Kd = 400.0;  // Ganho Derivativo
 int T = 1.0;      // Período de Amostragem (ms)
 unsigned long last_time;
 double erro_total, erro_anterior = 0.0;

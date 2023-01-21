@@ -10,7 +10,7 @@
 // return command from get_command function
 int command, uart0_filestream, running;
 
-void get_command();
+void* get_command();
 // void* get_command(void* uart_arg);
 
 int main(int argc, const char * argv[]) {
@@ -21,9 +21,10 @@ int main(int argc, const char * argv[]) {
     running = 1;
     // send command 0xA1 to uart
     uart0_filestream = write_commands(0xA1, uart0_filestream);
-    get_command();
-    // cast to void* to pass to thread
-    // get_command((void*)&uart0_filestream);
+    // read command from uart in a thread
+    pthread_t thread_id;
+    pthread_create(&thread_id, NULL, get_command, NULL);
+    pthread_join(thread_id, NULL);
 
     // check if command change
     printf("command: %d\n", command);
@@ -37,7 +38,7 @@ int main(int argc, const char * argv[]) {
     return 0;
 }
 
-void get_command(){
+void* get_command(){
     // unsigned char tx_buffer[256];
     // unsigned char *p_tx_buffer = &tx_buffer[0];
     int count_test = 0, *ans;
@@ -60,4 +61,7 @@ void get_command(){
         usleep(500*1000);
         count_test++;
     }
+    return NULL;
 }
+
+

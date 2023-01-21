@@ -35,6 +35,8 @@
 /******************************************************************************/
 /*!                         Own header files                                  */
 #include "bme280.h"
+#include "bme280_defs.h"
+#include "linux_userspace.h"
 
 /******************************************************************************/
 /*!                               Structures                                  */
@@ -126,29 +128,33 @@ int8_t user_i2c_write(uint8_t reg_addr, const uint8_t *data, uint32_t len, void 
  * @retval BME280_E_NVM_COPY_FAILED - Error: NVM copy failed
  *
  */
-int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev);
+
+int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev, float* ambient_temperature);
 
 /*!
  * @brief This function starts execution of the program.
  */
-int init_bme280(int argc, char* argv[])
+float init_bme280()
 {
     struct bme280_dev dev;
 
     struct identifier id;
 
+    
+
     /* Variable to define the result */
     int8_t rslt = BME280_OK;
 
-    if (argc < 2)
-    {
-        fprintf(stderr, "Missing argument for i2c bus.\n");
-        exit(1);
-    }
 
-    if ((id.fd = open(argv[1], O_RDWR)) < 0)
+    // save path to i2c bus
+    char* i2c_bus = "/dev/i2c-1";
+
+    // float ambient_temperature = 0.0;
+    float ambient_temperature;
+
+    if ((id.fd = open(i2c_bus, O_RDWR)) < 0)
     {
-        fprintf(stderr, "Failed to open the i2c bus %s\n", argv[1]);
+        fprintf(stderr, "Failed to open the i2c bus %s\n", i2c_bus);
         exit(1);
     }
 
@@ -179,14 +185,14 @@ int init_bme280(int argc, char* argv[])
         exit(1);
     }
 
-    rslt = stream_sensor_data_forced_mode(&dev);
+    rslt = stream_sensor_data_forced_mode(&dev, &ambient_temperature);
     if (rslt != BME280_OK)
     {
         fprintf(stderr, "Failed to stream sensor data (code %+d).\n", rslt);
         exit(1);
     }
 
-    return 0;
+    return ambient_temperature;
 }
 
 /*!
@@ -264,7 +270,7 @@ void print_sensor_data(struct bme280_data *comp_data)
 /*!
  * @brief This API reads the sensor temperature, pressure and humidity data in forced mode.
  */
-int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev)
+int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev, float* ambient_temperature)
 {
     /* Variable to define the result */
     int8_t rslt = BME280_OK;
@@ -277,6 +283,8 @@ int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev)
 
     /* Structure to get the pressure, temperature and humidity values */
     struct bme280_data comp_data;
+
+    float temperature = 0.0f;
 
     /* Recommended mode of operation: Indoor navigation */
     dev->settings.osr_h = BME280_OVERSAMPLING_1X;
@@ -295,14 +303,13 @@ int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev)
         return rslt;
     }
 
-    printf("Temperature, Pressure, Humidity\n");
-
     /*Calculate the minimum delay required between consecutive measurement based upon the sensor enabled
      *  and the oversampling configuration. */
     req_delay = bme280_cal_meas_delay(&dev->settings);
-
+    // do 2 times
+    int i = 2;
     /* Continuously stream sensor data */
-    while (1)
+    while (i--)
     {
         /* Set the sensor to forced mode */
         rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
@@ -321,8 +328,12 @@ int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev)
             break;
         }
 
-        print_sensor_data(&comp_data);
+        temperature = comp_data.temperature;
+        // print_sensor_data(&comp_data);
+        // each 2 seconds
+        usleep(2000*1000);
     }
-
+    
+    *ambient_temperature = temperature;
     return rslt;
 }

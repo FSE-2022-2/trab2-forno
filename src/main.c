@@ -3,10 +3,12 @@
 #include <unistd.h>         //Used for UART
 #include <fcntl.h>          //Used for UART
 #include <termios.h>        //Used for UART
-#include "uart-modbus.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
+#include "uart-modbus.h"
+#include "bme280.h"
+#include "linux_userspace.h"
 // return command from get_command function
 int command, uart0_filestream, running;
 
@@ -32,7 +34,10 @@ int main(int argc, const char * argv[]) {
 
     // send command to uart
     uart0_filestream = write_commands(command, uart0_filestream);
- 
+    
+    // read ambient temperature
+    float ambient_temperature = init_bme280();
+    printf("Ambient temperature: %f\n", ambient_temperature);
     close(uart0_filestream);
 
     return 0;

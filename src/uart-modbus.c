@@ -69,11 +69,14 @@ int write_to_uart(int uart0_filestream, unsigned char *tx_buffer, unsigned char 
     return uart0_filestream;
 }
 
-int read_commands(int command, int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
+// int read_commands(int command, int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
+int read_commands(int command, int uart0_filestream) {
+    unsigned char tx_buffer[256];
+    unsigned char *p_tx_buffer = &tx_buffer[0];
     switch (command)
     {
     case 1:
-        printf("case 1\n");
+        printf("Solicitando Temperatura Interna\n");
         *p_tx_buffer++ = 0x01; // Endereço da ESP32
         *p_tx_buffer++ = 0x23; // Código
         *p_tx_buffer++ = 0xC1; // Sub-código + Matrícula (8159)
@@ -94,7 +97,7 @@ int read_commands(int command, int uart0_filestream, unsigned char *tx_buffer, u
         }
         break;
     case 2:
-        printf("case 2\n");
+        printf("Solicitando Temperatura de Referencia\n");
         *p_tx_buffer++ = 0x01; // Endereço da ESP32
         *p_tx_buffer++ = 0x23; // Código
         *p_tx_buffer++ = 0xC2; // Sub-código + Matrícula (8159)
@@ -106,7 +109,7 @@ int read_commands(int command, int uart0_filestream, unsigned char *tx_buffer, u
         p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
         break;
     case 3:
-        printf("case 3\n");
+        printf("Lendo comando ...\n");
         *p_tx_buffer++ = 0x01; // Endereço da ESP32
         *p_tx_buffer++ = 0x23; // Código
         *p_tx_buffer++ = 0xC3; // Sub-código + Matrícula (8159)
@@ -119,6 +122,7 @@ int read_commands(int command, int uart0_filestream, unsigned char *tx_buffer, u
         break;
     default:
         printf("Comando inválido\n");
+        return uart0_filestream;
         break;
     }
 
@@ -129,139 +133,174 @@ int read_commands(int command, int uart0_filestream, unsigned char *tx_buffer, u
 }
 
 // alterar pra n usar scanf so escolha de opção e colocar os codigos como define
-int write_commands(int command, int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
+// mudar para pegar pelo codigo e não pela opção: 161, 162, 163, 164
+// int write_commands(int command, int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
+int write_commands(int command, int uart0_filestream) {
     // int size;
     // unsigned short crc;
+    unsigned char tx_buffer[256];
+    unsigned char *p_tx_buffer = &tx_buffer[0];
     switch (command)
     {
-    case 1:
-        printf("case 1\n");
-        *p_tx_buffer++ = 0x01; // Endereço da ESP32
-        *p_tx_buffer++ = 0x23; // Código
-        *p_tx_buffer++ = 0xC1; // Sub-código + Matrícula (8159)
-        *p_tx_buffer++ = 8;
-        *p_tx_buffer++ = 1;
-        *p_tx_buffer++ = 5;
-        *p_tx_buffer++ = 9;
-        // pega crc
-        p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-        // check crc
-        if (check_crc(tx_buffer, p_tx_buffer - tx_buffer))
-        {
-            printf("CRC OK\n");
-        }
-        else
-        {
-            printf("CRC NOK\n");
-        }
-        break;
-    case 2:
-        printf("case 2\n");
-        *p_tx_buffer++ = 0x01; // Endereço da ESP32
-        *p_tx_buffer++ = 0x23; // Código
-        *p_tx_buffer++ = 0xC2; // Sub-código + Matrícula (8159)
-        *p_tx_buffer++ = 8;
-        *p_tx_buffer++ = 1;
-        *p_tx_buffer++ = 5;
-        *p_tx_buffer++ = 9; 
-        // pega crc
-        p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-        break;
-    case 3:
-        printf("case 3\n");
-        *p_tx_buffer++ = 0x01; // Endereço da ESP32
-        *p_tx_buffer++ = 0x23; // Código
-        *p_tx_buffer++ = 0xC3; // Sub-código + Matrícula (8159)
-        *p_tx_buffer++ = 8;
-        *p_tx_buffer++ = 1;
-        *p_tx_buffer++ = 5;
-        *p_tx_buffer++ = 9; 
-        // pega crc
-        p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-        break;
-    case 4:
-        printf("case 4\n");
-        int sinal_controle;    // ativa resistor ou ventoinha (-100 a 100) envia gpio dps aciona ou inverso
-        *p_tx_buffer++ = 0x01; // Endereço da ESP32
-        *p_tx_buffer++ = 0x16; // Código
-        *p_tx_buffer++ = 0xD1; // Sub-código + Matrícula (8159)
-        *p_tx_buffer++ = 8;
-        *p_tx_buffer++ = 1;
-        *p_tx_buffer++ = 5;
-        *p_tx_buffer++ = 9; 
+        case 1:
+            printf("Envia sinal de controle Int (4 bytes)\n");
+            int sinal_controle;    // ativa resistor ou ventoinha (-100 a 100) envia gpio dps aciona ou inverso
+            *p_tx_buffer++ = 0x01; // Endereço da ESP32
+            *p_tx_buffer++ = 0x16; // Código
+            *p_tx_buffer++ = 0xD1; // Sub-código + Matrícula (8159)
+            *p_tx_buffer++ = 8;
+            *p_tx_buffer++ = 1;
+            *p_tx_buffer++ = 5;
+            *p_tx_buffer++ = 9; 
 
-        // ta errando usar como atribuição sinal_controle = 50 funfa
-        printf("Digite o sinal de controle: \n");
-        // clean stdin
-        clean_stdin();
-        fflush(stdin);
-        // get sinal de controle
-        sinal_controle = fscanf(stdin, "%d", &sinal_controle);
-        memcpy(p_tx_buffer, &sinal_controle, 4);
-        p_tx_buffer += 4;
-        // pega crc
-        p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-        break;
-    case 5:
-        printf("case 5\n");
-        float sinal_de_referencia;
-        *p_tx_buffer++ = 0x01; // Endereço da ESP32
-        *p_tx_buffer++ = 0x16; // Código
-        *p_tx_buffer++ = 0xD2; // Sub-código + Matrícula (8159)
-        *p_tx_buffer++ = 8;
-        *p_tx_buffer++ = 1;
-        *p_tx_buffer++ = 5;
-        *p_tx_buffer++ = 9; 
+            // ta errando usar como atribuição sinal_controle = 50 funfa
+            printf("Digite o sinal de controle: \n");
+            // clean stdin
+            clean_stdin();
+            fflush(stdin);
+            // get sinal de controle
+            sinal_controle = fscanf(stdin, "%d", &sinal_controle);
+            memcpy(p_tx_buffer, &sinal_controle, 4);
+            p_tx_buffer += 4;
+            // pega crc
+            p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            break;
+        case 2:
+            printf("Envia sinal de Referência Float (4 bytes)\n");
+            float sinal_de_referencia;
+            *p_tx_buffer++ = 0x01; // Endereço da ESP32
+            *p_tx_buffer++ = 0x16; // Código
+            *p_tx_buffer++ = 0xD2; // Sub-código + Matrícula (8159)
+            *p_tx_buffer++ = 8;
+            *p_tx_buffer++ = 1;
+            *p_tx_buffer++ = 5;
+            *p_tx_buffer++ = 9; 
 
-        printf("Digite o sinal de referência: \n");
-        // clean stdin
-        clean_stdin();
-        sinal_de_referencia = fscanf(stdin, "%f", &sinal_de_referencia);
-        memcpy(p_tx_buffer, &sinal_de_referencia, 4);
-        p_tx_buffer += 4;
-        // pega crc
-        p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-        break;
-    case 6:
-        printf("case 6\n");
-        char sinal;
-        *p_tx_buffer++ = 0x01; // Endereço da ESP32
-        *p_tx_buffer++ = 0x16; // Código
-        *p_tx_buffer++ = 0xD3; // Sub-código + Matrícula (8159)
-        *p_tx_buffer++ = 8;
-        *p_tx_buffer++ = 1;
-        *p_tx_buffer++ = 5;
-        *p_tx_buffer++ = 9; 
-        // pela dashboard - checar se comando recebido por 0xC3 é 0xA1(161) ou 0xA2(162)
-    
-        // clean stdin
-        sinal = 1;
-        memcpy(p_tx_buffer, &sinal, 1);
-        p_tx_buffer ++;
-        // pega crc
-        p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-        break;
-    default:
-        break;
+            printf("Digite o sinal de referência: \n");
+            // clean stdin
+            clean_stdin();
+            sinal_de_referencia = fscanf(stdin, "%f", &sinal_de_referencia);
+            memcpy(p_tx_buffer, &sinal_de_referencia, 4);
+            p_tx_buffer += 4;
+            // pega crc
+            p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            break;
+        case 3:
+            printf("Envia Temperatura Ambiente (Float))\n");
+            float temperatura_ambiente;
+            *p_tx_buffer++ = 0x01; // Endereço da ESP32
+            *p_tx_buffer++ = 0x16; // Código
+            *p_tx_buffer++ = 0xD6; // Sub-código + Matrícula (8159)
+            *p_tx_buffer++ = 8;
+            *p_tx_buffer++ = 1;
+            *p_tx_buffer++ = 5;
+            *p_tx_buffer++ = 9; 
+            // pela dashboard - checar se comando recebido por 0xC3 é 0xA1(161) ou 0xA2(162)
+        
+            printf("Enviando temperatura ambiente \n");
+            // clean stdin
+            clean_stdin();
+            // sinal_de_referencia = fscanf(stdin, "%f", &sinal_de_referencia);
+            memcpy(p_tx_buffer, &temperatura_ambiente, 4);
+            p_tx_buffer += 4;
+            // pega crc
+            p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            break;
+        default:
+            if (command == 0xA1 || command == 0xA2)
+            {   
+                int sinal;
+                if (command == 0xA1)
+                {
+                    printf("Ligando forno ...\n");
+                    sinal = 1;
+                }
+                else
+                {
+                    printf("Desligando forno ...\n");
+                    sinal = 0;
+                }
+
+                *p_tx_buffer++ = 0x01; // Endereço da ESP32
+                *p_tx_buffer++ = 0x16; // Código
+                *p_tx_buffer++ = 0xD3; // Sub-código + Matrícula (8159)
+                *p_tx_buffer++ = 8;
+                *p_tx_buffer++ = 1;
+                *p_tx_buffer++ = 5;
+                *p_tx_buffer++ = 9; 
+
+                memcpy(p_tx_buffer, &sinal, 4);
+                p_tx_buffer += 4;
+                // pega crc
+                p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            }
+            else if (command == 0xA3 || command == 0xA4)
+            {   
+                int sinal;
+                if (command == 0xA3)
+                {
+                    printf("Iniciando funcionamento do forno ...\n");
+                    sinal = 1;
+                }
+                else
+                {
+                    printf("Parando forno ...\n");
+                    sinal = 0;
+                }
+                
+                printf("Envia Estado de Funcionamento (Funcionando = 1 / Parado = 0)\n");
+                *p_tx_buffer++ = 0x01; // Endereço da ESP32
+                *p_tx_buffer++ = 0x16; // Código
+                *p_tx_buffer++ = 0xD5; // Sub-código + Matrícula (8159)
+                *p_tx_buffer++ = 8;
+                *p_tx_buffer++ = 1;
+                *p_tx_buffer++ = 5;
+                *p_tx_buffer++ = 9; 
+                // pela dashboard - checar se comando recebido por 0xC3 é 0xA3(163) ou 0xA4(164)
+                memcpy(p_tx_buffer, &sinal, 4);
+                p_tx_buffer += 4;
+                // pega crc
+                p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            }
+            else if(command == 0xA5)
+            {
+                int sinal;
+                // inverte sinal anterior
+                if (sinal == 0)
+                {
+                    printf("Modo de Controle da Temperatura de referência (Dashboard = 0 / Curva/Terminal = 1)\n");
+                    sinal = 1;
+                }
+                else
+                {
+                    printf("Modo de Controle da Temperatura de referência (Dashboard = 0 / Curva/Terminal = 1)\n");
+                    sinal = 0;
+                }
+
+                *p_tx_buffer++ = 0x01; // Endereço da ESP32
+                *p_tx_buffer++ = 0x16; // Código
+                *p_tx_buffer++ = 0xD4; // Sub-código + Matrícula (8159)
+                *p_tx_buffer++ = 8;
+                *p_tx_buffer++ = 1;
+                *p_tx_buffer++ = 5;
+                *p_tx_buffer++ = 9; 
+                // pela dashboard - checar se comando recebido por 0xC3 é 0xA5(165)
+                memcpy(p_tx_buffer, &sinal, 4);
+                p_tx_buffer += 4;
+                // pega crc
+                p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            }
+            else
+            {
+                printf("Comando inválido!\n");
+                return uart0_filestream;
+            }
+            break;
     }
 
-    // write to uart
     printf("Buffers de memória criados!\n");
-    // if (uart0_filestream != -1)
-    // {
-    //     printf("Escrevendo caracteres na UART ...");
-    //     int count = write(uart0_filestream, &tx_buffer[0], (p_tx_buffer - &tx_buffer[0]));
-    //     if (count < 0)
-    //     {
-    //         printf("UART TX error\n");
-    //     }
-    //     else
-    //     {
-    //         printf("escrito.\n");
-    //     }
-    // }
 
-    // call write_to_uart
+    // write to uart
     uart0_filestream = write_to_uart(uart0_filestream, tx_buffer, p_tx_buffer);
 
     return uart0_filestream;

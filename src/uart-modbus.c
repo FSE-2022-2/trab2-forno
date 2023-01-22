@@ -21,11 +21,23 @@ unsigned char* pega_crc(unsigned char *p_tx_buffer, unsigned char *tx_buffer)
         return p_tx_buffer;
 }
 
-int check_crc(unsigned char *rx_buffer, int rx_length)
+int check_crc(unsigned char *p_tx_buffer, unsigned char *tx_buffer)
 {
-    // a implementar
-    return 1;
+    int size;
+    unsigned short crc;
+    // get size of current filled buffer
+    size = p_tx_buffer - tx_buffer - 2;
+    crc = calcula_CRC(tx_buffer, size);
+    if (crc == p_tx_buffer[-2] + p_tx_buffer[-1]*256)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
+
 
 int open_uart(int uart0_filestream) {
     uart0_filestream = open("/dev/serial0", O_RDWR | O_NOCTTY | O_NDELAY);      //Open in non blocking read/write mode
@@ -75,6 +87,9 @@ int write_to_uart(int uart0_filestream, unsigned char *tx_buffer, unsigned char 
 int read_commands(int command, int uart0_filestream) {
     unsigned char tx_buffer[256];
     unsigned char *p_tx_buffer = &tx_buffer[0];
+    int check = 0, ttl = 0;
+    do
+    {
     switch (command)
     {
     case GET_INTERN_TEMPERATURE:
@@ -88,14 +103,15 @@ int read_commands(int command, int uart0_filestream) {
         *p_tx_buffer++ = 9;
         // pega crc
         p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-        // check crc
-        if (check_crc(tx_buffer, p_tx_buffer - tx_buffer))
+        check = check_crc(p_tx_buffer, tx_buffer);
+        if (check)
         {
             printf("CRC OK\n");
         }
         else
         {
             printf("CRC NOK\n");
+            // repeat switch
         }
         break;
     case GET_REFERENCE_TEMPERATURE:
@@ -109,6 +125,17 @@ int read_commands(int command, int uart0_filestream) {
         *p_tx_buffer++ = 9; 
         // pega crc
         p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+        // check crc
+        check = check_crc(p_tx_buffer, tx_buffer);
+        if (check)
+        {
+            printf("CRC OK\n");
+        }
+        else
+        {
+            printf("CRC NOK\n");
+            // repeat switch
+        }
         break;
     case GET_COMMAND:
         printf("Lendo comando ...\n");
@@ -121,12 +148,30 @@ int read_commands(int command, int uart0_filestream) {
         *p_tx_buffer++ = 9; 
         // pega crc
         p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+        check = check_crc(p_tx_buffer, tx_buffer);
+        if (check)
+        {
+            printf("CRC OK\n");
+        }
+        else
+        {
+            printf("CRC NOK\n");
+            // repeat switch
+        }
         break;
     default:
         printf("Comando inválido\n");
         return uart0_filestream;
         break;
     }
+        ttl++;
+        if (ttl == 3)
+        {
+            printf("TTL excedido\n");
+            return uart0_filestream;
+        }
+
+    } while (check != 1);
 
     // call write_to_uart
     uart0_filestream = write_to_uart(uart0_filestream, tx_buffer, p_tx_buffer);
@@ -155,13 +200,6 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
             *p_tx_buffer++ = 5;
             *p_tx_buffer++ = 9; 
 
-            // ta errando usar como atribuição sinal_controle = 50 funfa
-            printf("Digite o sinal de controle: \n");
-            // clean stdin
-            clean_stdin();
-            fflush(stdin);
-            // get sinal de controle
-            // sinal_controle = fscanf(stdin, "%d", &sinal_controle);
             sinal_controle = value_int;
             memcpy(p_tx_buffer, &sinal_controle, 4);
             p_tx_buffer += 4;
@@ -179,10 +217,6 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
             *p_tx_buffer++ = 5;
             *p_tx_buffer++ = 9; 
 
-            printf("Digite o sinal de referência: \n");
-            // clean stdin
-            clean_stdin();
-            // sinal_de_referencia = fscanf(stdin, "%f", &sinal_de_referencia);
             sinal_de_referencia = value_float;
             memcpy(p_tx_buffer, &sinal_de_referencia, 4);
             p_tx_buffer += 4;
@@ -203,7 +237,6 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
         
             printf("Enviando temperatura ambiente \n");
             temperatura_ambiente = value_float;
-            // sinal_de_referencia = fscanf(stdin, "%f", &sinal_de_referencia);
             memcpy(p_tx_buffer, &temperatura_ambiente, 4);
             p_tx_buffer += 4;
             // pega crc

@@ -10,12 +10,13 @@
 #include "bme280.h"
 #include "linux_userspace.h"
 // return command from get_command function
-int command, uart0_filestream, running;
+int command, uart0_filestream, running, functioning_state;
 read_uart_return_t ans;
 
 void* get_command();
 void* interface();
 void* get_ambient_temperature();
+void* parse_command();
 // void* get_command(void* uart_arg);
 
 int main(int argc, const char * argv[]) {
@@ -24,8 +25,9 @@ int main(int argc, const char * argv[]) {
     uart0_filestream = -1;
     uart0_filestream = open_uart(uart0_filestream);
     running = 1;
+    command = 0;
     // send command 0xA1 to uart
-    uart0_filestream = write_commands(TURN_ON_OVEN, uart0_filestream, 0, 0);
+    uart0_filestream = write_commands(TURN_OFF_OVEN, uart0_filestream, 0, 0);
     // read command from uart in a thread
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, get_command, NULL);
@@ -36,7 +38,7 @@ int main(int argc, const char * argv[]) {
     // if command change, send command to uart
 
     // send command to uart
-    uart0_filestream = write_commands(command, uart0_filestream, 0, 0); //change
+    // uart0_filestream = write_commands(command, uart0_filestream, 0, 0); //change
     
     //get ambient temperature
     get_ambient_temperature();
@@ -52,7 +54,7 @@ void* get_command(){
     int count_test = 0;
 
     while(running){
-        if (count_test == 6)
+        if (count_test == 10)
         {
             running = 0; 
         }
@@ -67,6 +69,8 @@ void* get_command(){
         // command = ans[1];
         uart0_filestream = ans.uart0_filestream;
         command = ans.command;
+
+        parse_command();
         // sleep 500ms
         usleep(500*1000);
         count_test++;
@@ -88,4 +92,36 @@ void* get_ambient_temperature(){
     return NULL;
 }
 
-
+void* parse_command(){
+    // parse command
+    if(command == TURN_ON_OVEN)
+    {
+        uart0_filestream = write_commands(TURN_ON_OVEN, uart0_filestream, 0, 0);
+    }
+    else if (command == TURN_OFF_OVEN)
+    {
+        uart0_filestream = write_commands(TURN_OFF_OVEN, uart0_filestream, 0, 0);
+    }
+    else if (command == START_OVEN)
+    {
+        uart0_filestream = write_commands(START_OVEN, uart0_filestream, 0, 0);
+    }
+    else if (command == STOP_OVEN)
+    {
+        uart0_filestream = write_commands(STOP_OVEN, uart0_filestream, 0, 0);
+    }
+    else if (command == TOGGLE_CONTROL_MODE)
+    {
+        uart0_filestream = write_commands(TOGGLE_CONTROL_MODE, uart0_filestream, 0, !functioning_state);
+    }
+    else if (command == SEND_AMBIENT_TEMPERATURE)
+    {
+        // uart0_filestream = write_commands(SEND_AMBIENT_TEMPERATURE, uart0_filestream, get_ambient_temperature, 0);
+        get_ambient_temperature();
+    }
+    else
+    {
+        printf("Command not found - %d\n", command);
+    }
+    return NULL;
+}

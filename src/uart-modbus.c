@@ -92,11 +92,11 @@ int read_commands(int command, int uart0_filestream) {
     {
     switch (command)
     {
-    case GET_INTERN_TEMPERATURE:
+    case GET_INTERNAL_TEMPERATURE:
         printf("Solicitando Temperatura Interna\n");
         *p_tx_buffer++ = ESP32_ADDRESS; // Endereço da ESP32
         *p_tx_buffer++ = CCODE; // Código
-        *p_tx_buffer++ = GET_INTERN_TEMPERATURE; // Sub-código + Matrícula (8159)
+        *p_tx_buffer++ = GET_INTERNAL_TEMPERATURE; // Sub-código + Matrícula (8159)
         *p_tx_buffer++ = 8;
         *p_tx_buffer++ = 1;
         *p_tx_buffer++ = 5;
@@ -187,6 +187,7 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
     // unsigned short crc;
     unsigned char tx_buffer[256];
     unsigned char *p_tx_buffer = &tx_buffer[0];
+    int check = 0, ttl = 0;
     switch (command)
     {
         case SEND_CONTROL_SIGNAL:
@@ -205,6 +206,17 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
             p_tx_buffer += 4;
             // pega crc
             p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            // check crc
+            check = check_crc(p_tx_buffer, tx_buffer);
+            if (check)
+            {
+                printf("CRC OK\n");
+            }
+            else
+            {
+                printf("CRC NOK\n");
+                // repeat switch
+            }
             break;
         case SEND_REFERENCE_SIGNAL:
             printf("Envia sinal de Referência Float (4 bytes)\n");
@@ -241,21 +253,22 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
             p_tx_buffer += 4;
             // pega crc
             p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+            // check crc
+            check = check_crc(p_tx_buffer, tx_buffer);
+            if (check)
+            {
+                printf("CRC OK\n");
+            }
+            else
+            {
+                printf("CRC NOK\n");
+                // repeat switch
+            }
             break;
         default:
             if (command == TURN_ON_OVEN || command == TURN_OFF_OVEN)
             {   
-                int sinal;
-                if (command == TURN_ON_OVEN)
-                {
-                    printf("Ligando forno ...\n");
-                    sinal = 1;
-                }
-                else
-                {
-                    printf("Desligando forno ...\n");
-                    sinal = 0;
-                }
+          
 
                 *p_tx_buffer++ = ESP32_ADDRESS; // Endereço da ESP32
                 *p_tx_buffer++ = DCODE; // Código
@@ -265,26 +278,38 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
                 *p_tx_buffer++ = 5;
                 *p_tx_buffer++ = 9; 
 
-                memcpy(p_tx_buffer, &sinal, 4);
-                p_tx_buffer += 4;
-                // pega crc
-                p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
-            }
-            else if (command == START_OVEN || command == STOP_OVEN)
-            {   
-                int sinal;
-                // sinal = value_int;
-                if (command == START_OVEN)
+                // memcpy(p_tx_buffer, &sinal, 4);
+                // p_tx_buffer += 4;
+
+                    //   int sinal;
+                if (command == TURN_ON_OVEN)
                 {
-                    printf("Iniciando funcionamento do forno ...\n");
-                    sinal = 1;
+                    printf("Ligando forno ...\n");
+                    // sinal = 1;
+                    *p_tx_buffer++ = 1;
                 }
                 else
                 {
-                    printf("Parando forno ...\n");
-                    sinal = 0;
+                    printf("Desligando forno ...\n");
+                    // sinal = 0;
+                    *p_tx_buffer++ = 0;
                 }
-                
+                // pega crc
+                p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+                // check crc
+                check = check_crc(p_tx_buffer, tx_buffer);
+                if (check == 1)
+                {
+                    printf("CRC OK\n");
+                }
+                else
+                {
+                    printf("CRC NOK\n");
+                }
+            }
+            else if (command == START_OVEN || command == STOP_OVEN)
+            {   
+              
                 printf("Envia Estado de Funcionamento (Funcionando = 1 / Parado = 0)\n");
                 *p_tx_buffer++ = ESP32_ADDRESS; // Endereço da ESP32
                 *p_tx_buffer++ = DCODE; // Código
@@ -293,27 +318,39 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
                 *p_tx_buffer++ = 1;
                 *p_tx_buffer++ = 5;
                 *p_tx_buffer++ = 9; 
-                // pela dashboard - checar se comando recebido por 0xC3 é 0xA3(163) ou 0xA4(164)
-                memcpy(p_tx_buffer, &sinal, 4);
-                p_tx_buffer += 4;
+                // // pela dashboard - checar se comando recebido por 0xC3 é 0xA3(163) ou 0xA4(164)
+                // memcpy(p_tx_buffer, &sinal, 4);
+                // p_tx_buffer += 4;
+                //   int sinal;
+                // sinal = value_int;
+                if (command == START_OVEN)
+                {
+                    printf("Iniciando funcionamento do forno ...\n");
+                    *p_tx_buffer++ = 1;
+                }
+                else
+                {
+                    printf("Parando forno ...\n");
+                    *p_tx_buffer++ = 0;
+                }
                 // pega crc
                 p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+                // check crc
+                check = check_crc(p_tx_buffer, tx_buffer);
+                if (check)
+                {
+                    printf("CRC OK\n");
+                }
+                else
+                {
+                    printf("CRC NOK\n");
+                    // repeat switch
+                }
             }
             else if(command == TOGGLE_CONTROL_MODE)
             {
                 int sinal;
-                sinal = value_int;
-                // inverte sinal anterior
-                if (sinal == 0)
-                {
-                    printf("Modo de Controle da Temperatura de referência (Dashboard = 0 / Curva/Terminal = 1)\n");
-                    sinal = 1;
-                }
-                else
-                {
-                    printf("Modo de Controle da Temperatura de referência (Dashboard = 0 / Curva/Terminal = 1)\n");
-                    sinal = 0;
-                }
+              
 
                 *p_tx_buffer++ = ESP32_ADDRESS; // Endereço da ESP32
                 *p_tx_buffer++ = DCODE; // Código
@@ -322,11 +359,35 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
                 *p_tx_buffer++ = 1;
                 *p_tx_buffer++ = 5;
                 *p_tx_buffer++ = 9; 
-                // pela dashboard - checar se comando recebido por 0xC3 é 0xA5(165)
-                memcpy(p_tx_buffer, &sinal, 4);
-                p_tx_buffer += 4;
+                // // pela dashboard - checar se comando recebido por 0xC3 é 0xA5(165)
+                // memcpy(p_tx_buffer, &sinal, 4);
+                // p_tx_buffer += 4;
+                sinal = value_int;
+                // inverte sinal anterior
+                if (sinal == 0)
+                {
+                    printf("Modo de Controle da Temperatura de referência (Dashboard = 0 / Curva/Terminal = 1)\n");
+                    *p_tx_buffer++ = 1;
+                }
+                else
+                {
+                    printf("Modo de Controle da Temperatura de referência (Dashboard = 0 / Curva/Terminal = 1)\n");
+                    // sinal = 0;
+                    *p_tx_buffer++ = 0;
+                }
                 // pega crc
                 p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
+                // check crc
+                check = check_crc(p_tx_buffer, tx_buffer);
+                if (check)
+                {
+                    printf("CRC OK\n");
+                }
+                else
+                {
+                    printf("CRC NOK\n");
+                    // repeat switch
+                }
             }
             else
             {
@@ -372,7 +433,7 @@ read_uart_return_t read_uart(int uart0_filestream) {
             // switch case para verificar o sub-código no byte 3
             switch (rx_buffer[2])
             {
-                case GET_INTERN_TEMPERATURE:  // float
+                case GET_INTERNAL_TEMPERATURE:  // float
                     //Bytes received
                     rx_buffer[rx_length] = '\0';
                     // parse to get the end float 0x00 0x23 0xC1 + float (4 bytes)

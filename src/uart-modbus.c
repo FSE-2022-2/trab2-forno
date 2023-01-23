@@ -192,7 +192,7 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
     {
         case SEND_CONTROL_SIGNAL:
             printf("Envia sinal de controle Int (4 bytes)\n");
-            int sinal_controle;    // ativa resistor ou ventoinha (-100 a 100) envia gpio dps aciona ou inverso
+            int control_signal;    // ativa resistor ou ventoinha (-100 a 100) envia gpio dps aciona ou inverso
             *p_tx_buffer++ = ESP32_ADDRESS; // Endereço da ESP32
             *p_tx_buffer++ = DCODE; // Código
             *p_tx_buffer++ = SEND_CONTROL_SIGNAL; // Sub-código + Matrícula (8159)
@@ -201,8 +201,8 @@ int write_commands(int command, int uart0_filestream, float value_float, int val
             *p_tx_buffer++ = 5;
             *p_tx_buffer++ = 9; 
 
-            sinal_controle = value_int;
-            memcpy(p_tx_buffer, &sinal_controle, 4);
+            control_signal = value_int;
+            memcpy(p_tx_buffer, &control_signal, 4);
             p_tx_buffer += 4;
             // pega crc
             p_tx_buffer = pega_crc(p_tx_buffer, tx_buffer);
@@ -440,7 +440,7 @@ read_uart_return_t read_uart(int uart0_filestream) {
                     pf = (float *) &rx_buffer[3];
                     printf("Temperatura interna recebida: %.2f\n", *pf);
                     // ans[1] = *pf;
-                    ans.inside_temperature = *pf;
+                    ans.internal_temperature = *pf;
                     break;
                 case GET_REFERENCE_TEMPERATURE:
                     //Bytes received

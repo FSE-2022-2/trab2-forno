@@ -174,7 +174,7 @@ void* oven_process()
         // copy read_uart return to ans
         ans = read_uart(uart0_filestream);
         uart0_filestream = ans.uart0_filestream;
-        float internal_temperature = ans.inside_temperature;
+        float internal_temperature = ans.internal_temperature;
         printf("Internal temperature: %f\n", internal_temperature);
         // solicitar temperatura referência
         uart0_filestream = read_commands(GET_REFERENCE_TEMPERATURE, uart0_filestream);
@@ -195,6 +195,7 @@ void* oven_process()
         int control_signal_int = (int)control_signal;
         // send control signal to uart
         uart0_filestream = write_commands(SEND_CONTROL_SIGNAL, uart0_filestream, 0, control_signal_int);
-        
+        //sleep 1 
+        sleep(1);
     }
 }

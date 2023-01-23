@@ -27,7 +27,7 @@
 struct read_uart_return
 {
     int uart0_filestream;
-    float inside_temperature, reference_temperature, value;
+    float internal_temperature, reference_temperature, value;
     int command;
 };
 

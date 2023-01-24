@@ -17,6 +17,7 @@ int command, uart0_filestream, running, functioning_state, on_state, control_mod
 read_uart_return_t ans;
 pthread_t thread_oven_process;
 pthread_t thread_get_command;
+pthread_t thread_interface;
 
 // pthread_t thread_get_command;
 
@@ -29,6 +30,7 @@ void sigint_handler(int sig_num);
 void finish_all();
 void init();
 void pid_init();
+void parse_send_command(int send_command);
 // void* get_command(void* uart_arg);
 
 int main(int argc, const char *argv[])
@@ -38,6 +40,7 @@ int main(int argc, const char *argv[])
     signal(SIGINT, sigint_handler);
     pthread_create(&thread_get_command, NULL, get_command, NULL);
     pthread_join(thread_get_command, NULL);
+    
 
     finish_all();
 
@@ -55,12 +58,6 @@ void *get_command()
         parse_command();
         usleep(500 * 1000);
     }
-    return NULL;
-}
-
-void *interface()
-{
-    // interface with user
     return NULL;
 }
 
@@ -240,4 +237,61 @@ void pid_init()
         fflush(stdin);
     }
     pid_configura_constantes(Kp, Ki, Kd);
+}
+
+//debug
+void *interface()
+{   int send_command;
+    printf("Oven controller interface\n");
+    printf("1 - Turn on oven\n");
+    printf("2 - Turn off oven\n");
+    printf("3 - Start oven\n");
+    printf("4 - Stop oven\n");
+    printf("5 - Toggle control mode\n");
+    printf("6 - Get ambient temperature\n");
+    printf("7 - Get oven temperature\n");
+    printf("8 - Get oven state\n");
+    printf("9 - Get control mode\n");
+    scanf("%d", &send_command);
+    fflush(stdin);
+    parse_send_command(send_command);
+    return NULL;
+}
+//debug
+void parse_send_command(int send_command)
+{
+    switch (send_command)
+    {
+    case 1:
+        uart0_filestream = write_commands(TURN_ON_OVEN, uart0_filestream, 0, 0);
+        break;
+    case 2:
+        uart0_filestream = write_commands(TURN_OFF_OVEN, uart0_filestream, 0, 0);
+        break;
+    case 3:
+        uart0_filestream = write_commands(START_OVEN, uart0_filestream, 0, 0);
+    case 4:
+        uart0_filestream = write_commands(STOP_OVEN, uart0_filestream, 0, 0);
+        break;
+    case 5:
+        uart0_filestream = write_commands(SEND_CONTROL_MODE, uart0_filestream, 0, 0);
+        break;
+    case 6:
+        get_ambient_temperature();
+        break;
+    case 7:
+        uart0_filestream = read_commands(GET_INTERNAL_TEMPERATURE, uart0_filestream);
+        ans = read_uart(uart0_filestream);
+        uart0_filestream = ans.uart0_filestream;
+        printf("Internal temperature: %f\n", ans.internal_temperature);
+        break;
+    case 8:
+        uart0_filestream = read_commands(GET_REFERENCE_TEMPERATURE, uart0_filestream);
+        ans = read_uart(uart0_filestream);
+        uart0_filestream = ans.uart0_filestream;
+        printf("Reference temperature: %f\n", ans.reference_temperature);
+        break;
+    default:
+        break;
+    }
 }

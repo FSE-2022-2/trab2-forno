@@ -9,12 +9,16 @@
 #include <signal.h>
 #include "uart-modbus.h"
 #include "bme280.h"
-#include "linux_userspace.h"
+#include "I2C_controller.h"
 #include "pid.h"
-#include "controle_forno.h"
+#include "oven_controller.h"
 // return command from get_command function
 int command, uart0_filestream, running, functioning_state, on_state, control_mode;
 read_uart_return_t ans;
+pthread_t thread_oven_process;
+pthread_t thread_get_command;
+
+// pthread_t thread_get_command;
 
 void *get_command();
 void *interface();
@@ -30,67 +34,26 @@ void pid_init();
 int main(int argc, const char *argv[])
 {
     // treats ctrl+c
+    init();
     signal(SIGINT, sigint_handler);
-    uart0_filestream = -1;
-    uart0_filestream = open_uart(uart0_filestream);
-    running = 1;
-    command = 0;
-    // send command 0xA1 to uart
-    uart0_filestream = write_commands(TURN_OFF_OVEN, uart0_filestream, 0, 0);
-    // read command from uart in a thread
-    pthread_t thread_id;
-    pthread_create(&thread_id, NULL, get_command, NULL);
-    uart0_filestream = write_commands(TURN_ON_OVEN, uart0_filestream, 0, 0);
-    uart0_filestream = write_commands(START_OVEN, uart0_filestream, 0, 0);
-    oven_process();
-    uart0_filestream = write_commands(STOP_OVEN, uart0_filestream, 0, 0);
-    pthread_join(thread_id, NULL);
-
-    // check if command change
-    // printf("command: %d\n", command);
-    // if command change, send command to uart
-
-    // send command to uart
-    // uart0_filestream = write_commands(command, uart0_filestream, 0, 0); //change
-
-    // get ambient temperature
-    //  get_ambient_temperature();
+    pthread_create(&thread_get_command, NULL, get_command, NULL);
+    pthread_join(thread_get_command, NULL);
 
     finish_all();
-    // close_uart(uart0_filestream);
 
     return 0;
 }
 
 void *get_command()
 {
-    // unsigned char tx_buffer[256];
-    // unsigned char *p_tx_buffer = &tx_buffer[0];
-    int count_test = 0;
-
-    while (running)
+    while (1)
     {
-        // if input is cntl+c, stop running
-        if (count_test == 10)
-        {
-            running = 0;
-        }
-
-        // 3 for 0xC3
-        // uart0_filestream = read_commands(3, *(int*)uart_arg, tx_buffer, p_tx_buffer);
         uart0_filestream = read_commands(GET_COMMAND, uart0_filestream);
-        // copy read_uart return to ans
-
         ans = read_uart(uart0_filestream);
-        // uart0_filestream = ans[0];
-        // command = ans[1];
         uart0_filestream = ans.uart0_filestream;
         command = ans.command;
-
         parse_command();
-        // sleep 500ms
         usleep(500 * 1000);
-        count_test++;
     }
     return NULL;
 }
@@ -135,16 +98,14 @@ void *parse_command()
     }
     else if (command == START_OVEN)
     {
-        oven_process();
+        functioning_state = 1;
+        pthread_create(&thread_oven_process, NULL, oven_process, NULL);
+        pthread_join(thread_oven_process, NULL);
     }
     else if (command == STOP_OVEN)
     {
         uart0_filestream = write_commands(STOP_OVEN, uart0_filestream, 0, 0);
-        // read stop oven command
-        ans = read_uart(uart0_filestream);
-        uart0_filestream = ans.uart0_filestream;
-        // convert ans.value to int
-        functioning_state = (int)ans.value;
+        functioning_state = 0;
     }
     else if (command == TOGGLE_CONTROL_MODE)
     {
@@ -152,28 +113,24 @@ void *parse_command()
     }
     else if (command == SEND_AMBIENT_TEMPERATURE)
     {
-        // uart0_filestream = write_commands(SEND_AMBIENT_TEMPERATURE, uart0_filestream, get_ambient_temperature, 0);
         get_ambient_temperature();
+    }
+    else if (command == 0)
+    {
+        // do nothing
+        ;
     }
     else
     {
-        printf("Command not found - %d\n", command);
+        printf("Comando não é válido - %d\n", command);
     }
     return NULL;
 }
 
 void *oven_process()
 {
-    uart0_filestream = write_commands(START_OVEN, uart0_filestream, 0, 0);
-    // read start oven command
-    ans = read_uart(uart0_filestream);
-    uart0_filestream = ans.uart0_filestream;
-    // convert ans.value to int
-    functioning_state = (int)ans.value;
-    printf("functioning_state: %d\n", functioning_state);
-    functioning_state = 1;
-    pwm_init();
-
+    printf("Começando processo .....  (Estado de funcionamento = %d)\n", functioning_state);
+    // functioning_state = 1;
     // loop ate forno parar
     while (functioning_state == 1)
     {
@@ -200,23 +157,22 @@ void *oven_process()
         // calcula sinal de controle
         double control_signal = pid_controle(internal_temperature);
         printf("Control signal: %lf\n", control_signal);
-        // convert percentage in float to int ex (0,5 -> 50)
-        // int control_signal_int = control_signal* 10
         int control_signal_int = (int)control_signal;
         // send control signal to uart
         uart0_filestream = write_commands(SEND_CONTROL_SIGNAL, uart0_filestream, 0, control_signal_int);
         // pwm
         if (control_signal_int < 0)
-        {   
+        {
             control_signal_int = control_signal_int * -1;
-            // one liner comparison to se if it is i < 40, if it is, set to 40 and if it is bigger than 100, set to 100
-            control_signal_int = (control_signal_int < 40) ? 40 : (control_signal_int > 100) ? 100 : control_signal_int;
-            pwm_ventoinha(control_signal_int);
+            control_signal_int = (control_signal_int < 40) ? 40 : (control_signal_int > 100) ? 100
+                                                                                             : control_signal_int;
+            fan_pwm(control_signal_int);
         }
         else
         {
-            control_signal_int = (control_signal_int < 40) ? 40 : (control_signal_int > 100) ? 100 : control_signal_int;
-            pwm_resistencia(control_signal_int);
+            control_signal_int = (control_signal_int < 40) ? 40 : (control_signal_int > 100) ? 100
+                                                                                             : control_signal_int;
+            resistor_pwm(control_signal_int);
         }
         // sleep 1
         sleep(1);
@@ -238,8 +194,8 @@ void finish_all()
     // close uart
     close(uart0_filestream);
     // send pwm to 0 on both channels
-    pwm_resistencia(0);
-    pwm_ventoinha(0);
+    resistor_pwm(0);
+    fan_pwm(0);
 }
 
 void init()
@@ -247,19 +203,41 @@ void init()
     // init uart
     uart0_filestream = -1;
     uart0_filestream = open_uart(uart0_filestream);
-    running = 1;
-    command = 0;
-    // send command 0xA1 to uart
     uart0_filestream = write_commands(TURN_OFF_OVEN, uart0_filestream, 0, 0);
+    running = 0;
+    command = 0;
+    functioning_state = 0;
     // init pwm
     pwm_init();
     // init pid
     pid_init();
     // init signal handler
-    signal(SIGINT, sigint_handler);
 }
 
 void pid_init()
 {
-    pid_configura_constantes(0.5, 0.5, 0.5);
+    float Kp, Ki, Kd;
+    // default values
+    Kp = 30.0;
+    Ki = 0.2;
+    Kd = 400.0;
+    printf("configurar costantes manualmente?\n");
+    printf("1 - sim\n");
+    printf("2 - nao\n");
+    int choice;
+    scanf("%d", &choice);
+    fflush(stdin);
+    if (choice == 1)
+    {
+        printf("Kp: ");
+        scanf("%lf", &Kp);
+        fflush(stdin);
+        printf("Ki: ");
+        scanf("%lf", &Ki);
+        fflush(stdin);
+        printf("Kd: ");
+        scanf("%lf", &Kd);
+        fflush(stdin);
+    }
+    pid_configura_constantes(Kp, Ki, Kd);
 }

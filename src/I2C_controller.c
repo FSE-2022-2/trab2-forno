@@ -36,7 +36,7 @@
 /*!                         Own header files                                  */
 #include "bme280.h"
 #include "bme280_defs.h"
-#include "linux_userspace.h"
+#include "I2C_controller.h"
 
 /******************************************************************************/
 /*!                               Structures                                  */

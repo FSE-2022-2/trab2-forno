@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
+#include <signal.h>
 #include "uart-modbus.h"
 #include "bme280.h"
 #include "linux_userspace.h"
@@ -20,11 +21,16 @@ void *interface();
 void *get_ambient_temperature();
 void *parse_command();
 void *oven_process();
+void sigint_handler(int sig_num);
+void finish_all();
+void init();
+void pid_init();
 // void* get_command(void* uart_arg);
 
 int main(int argc, const char *argv[])
 {
-
+    // treats ctrl+c
+    signal(SIGINT, sigint_handler);
     uart0_filestream = -1;
     uart0_filestream = open_uart(uart0_filestream);
     running = 1;
@@ -34,10 +40,14 @@ int main(int argc, const char *argv[])
     // read command from uart in a thread
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, get_command, NULL);
+    uart0_filestream = write_commands(TURN_ON_OVEN, uart0_filestream, 0, 0);
+    uart0_filestream = write_commands(START_OVEN, uart0_filestream, 0, 0);
+    oven_process();
+    uart0_filestream = write_commands(STOP_OVEN, uart0_filestream, 0, 0);
     pthread_join(thread_id, NULL);
 
     // check if command change
-    printf("command: %d\n", command);
+    // printf("command: %d\n", command);
     // if command change, send command to uart
 
     // send command to uart
@@ -45,11 +55,9 @@ int main(int argc, const char *argv[])
 
     // get ambient temperature
     //  get_ambient_temperature();
-    uart0_filestream = write_commands(TURN_ON_OVEN, uart0_filestream, 0, 0);
-    uart0_filestream = write_commands(START_OVEN, uart0_filestream, 0, 0);
-    oven_process();
 
-    close(uart0_filestream);
+    finish_all();
+    // close_uart(uart0_filestream);
 
     return 0;
 }
@@ -127,7 +135,7 @@ void *parse_command()
     }
     else if (command == START_OVEN)
     {
-       oven_process();
+        oven_process();
     }
     else if (command == STOP_OVEN)
     {
@@ -154,7 +162,7 @@ void *parse_command()
     return NULL;
 }
 
-void* oven_process()
+void *oven_process()
 {
     uart0_filestream = write_commands(START_OVEN, uart0_filestream, 0, 0);
     // read start oven command
@@ -190,12 +198,68 @@ void* oven_process()
         // calcular pid
         pid_atualiza_referencia(reference_temperature);
         // calcula sinal de controle
-        float control_signal = pid_controle(internal_temperature);
-        // convert float to int
+        double control_signal = pid_controle(internal_temperature);
+        printf("Control signal: %lf\n", control_signal);
+        // convert percentage in float to int ex (0,5 -> 50)
+        // int control_signal_int = control_signal* 10
         int control_signal_int = (int)control_signal;
         // send control signal to uart
         uart0_filestream = write_commands(SEND_CONTROL_SIGNAL, uart0_filestream, 0, control_signal_int);
-        //sleep 1 
+        // pwm
+        if (control_signal_int < 0)
+        {   
+            control_signal_int = control_signal_int * -1;
+            // one liner comparison to se if it is i < 40, if it is, set to 40 and if it is bigger than 100, set to 100
+            control_signal_int = (control_signal_int < 40) ? 40 : (control_signal_int > 100) ? 100 : control_signal_int;
+            pwm_ventoinha(control_signal_int);
+        }
+        else
+        {
+            control_signal_int = (control_signal_int < 40) ? 40 : (control_signal_int > 100) ? 100 : control_signal_int;
+            pwm_resistencia(control_signal_int);
+        }
+        // sleep 1
         sleep(1);
     }
+}
+
+void sigint_handler(int sig)
+{
+    printf("SIGINT received. Exiting...\n");
+    finish_all();
+    exit(0);
+}
+
+void finish_all()
+{
+    running = 0;
+    // desliga forno
+    uart0_filestream = write_commands(TURN_OFF_OVEN, uart0_filestream, 0, 0);
+    // close uart
+    close(uart0_filestream);
+    // send pwm to 0 on both channels
+    pwm_resistencia(0);
+    pwm_ventoinha(0);
+}
+
+void init()
+{
+    // init uart
+    uart0_filestream = -1;
+    uart0_filestream = open_uart(uart0_filestream);
+    running = 1;
+    command = 0;
+    // send command 0xA1 to uart
+    uart0_filestream = write_commands(TURN_OFF_OVEN, uart0_filestream, 0, 0);
+    // init pwm
+    pwm_init();
+    // init pid
+    pid_init();
+    // init signal handler
+    signal(SIGINT, sigint_handler);
+}
+
+void pid_init()
+{
+    pid_configura_constantes(0.5, 0.5, 0.5);
 }

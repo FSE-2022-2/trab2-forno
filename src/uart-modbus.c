@@ -184,7 +184,7 @@ int read_commands(int command, int uart0_filestream) {
 // int write_commands(int command, int uart0_filestream, unsigned char *tx_buffer, unsigned char *p_tx_buffer) {
 int write_commands(int command, int uart0_filestream, float value_float, int value_int) {
     // int size;
-    // unsigned short crc;
+    // unsigned short crc;;
     unsigned char tx_buffer[256];
     unsigned char *p_tx_buffer = &tx_buffer[0];
     int check = 0, ttl = 0;
